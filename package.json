@@ -9,7 +9,11 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:backup": "tsx database/backup.ts",
+    "db:restore": "tsx database/restore.ts",
+    "db:export-sql": "tsx database/export-sql.ts",
+    "db:auto-backup": "tsx database/auto-backup.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
