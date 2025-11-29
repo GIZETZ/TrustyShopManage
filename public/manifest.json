@@ -1,6 +1,6 @@
 {
-  "name": "CommercantMarchandise",
-  "short_name": "Commercant",
+  "name": "TrustyShop Manager",
+  "short_name": "TrustyShop",
   "description": "Application de gestion des commandes et marchandises",
   "start_url": "/?source=pwa",
   "scope": "/",

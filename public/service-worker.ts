@@ -1,4 +1,4 @@
-const CACHE_NAME = "commercant-v1";
+const CACHE_NAME = "TrustyShopManager-v1";
 const urlsToCache = [
   "/",
   "/index.html",
