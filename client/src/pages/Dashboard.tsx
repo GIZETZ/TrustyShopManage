@@ -195,7 +195,18 @@ export default function Dashboard() {
         {filteredOrders.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredOrders.map((order) => (
-              <OrderCard key={order.id} order={order} />
+              <OrderCard 
+                key={order.id} 
+                order={order} 
+                onUpdate={(updatedOrder) => {
+                  setOrders(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+                }}
+                onDelete={(orderId) => {
+                  if(confirm("Êtes-vous sûr de vouloir supprimer cette commande ?")) {
+                    setOrders(orders.filter(o => o.id !== orderId));
+                  }
+                }}
+              />
             ))}
           </div>
         ) : (
