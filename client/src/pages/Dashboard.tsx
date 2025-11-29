@@ -20,9 +20,11 @@ export default function Dashboard() {
   const [openCombobox, setOpenCombobox] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [orderItems, setOrderItems] = useState<string[]>([""]);
 
   // Summary Statistics
   const totalOrders = orders.length;
+
   const totalRevenue = orders.reduce((acc, order) => acc + order.paidAmount, 0);
   const totalDue = orders.reduce((acc, order) => acc + (order.totalAmount - order.paidAmount), 0);
 
@@ -60,11 +62,14 @@ export default function Dashboard() {
     const customerName = selectedCustomer || (formData.get("customer_manual") as string);
 
     if (!customerName) return; 
+    
+    const validItems = orderItems.filter(i => i.trim() !== "");
+    if (validItems.length === 0) return;
 
     const newOrder: Order = {
       id: `ORD-${Math.floor(Math.random() * 10000)}`,
       customer: customerName,
-      items: [(formData.get("item") as string)],
+      items: validItems,
       totalAmount: Number(formData.get("totalAmount")),
       paidAmount: Number(formData.get("paidAmount")),
       date: new Date().toISOString(),
@@ -78,6 +83,26 @@ export default function Dashboard() {
     setIsNewOrderOpen(false);
     setSelectedCustomer(""); // Reset
     setSelectedImages([]); // Reset images
+    setOrderItems([""]); // Reset items
+  };
+
+  const addOrderItem = () => {
+    setOrderItems([...orderItems, ""]);
+  };
+
+  const updateOrderItem = (index: number, value: string) => {
+    const newItems = [...orderItems];
+    newItems[index] = value;
+    setOrderItems(newItems);
+  };
+
+  const removeOrderItem = (index: number) => {
+    if (orderItems.length === 1) {
+      setOrderItems([""]);
+      return;
+    }
+    const newItems = orderItems.filter((_, i) => i !== index);
+    setOrderItems(newItems);
   };
 
   return (
@@ -173,8 +198,35 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="item">Article(s)</Label>
-                  <Input id="item" name="item" placeholder="Ex: 1 Pull Noir" required />
+                  <div className="flex items-center justify-between">
+                    <Label>Article(s)</Label>
+                    <Button type="button" variant="ghost" size="sm" onClick={addOrderItem} className="h-6 px-2 text-primary hover:text-primary hover:bg-primary/10">
+                      <Plus size={14} className="mr-1" /> Ajouter
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {orderItems.map((item, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input 
+                          value={item} 
+                          onChange={(e) => updateOrderItem(index, e.target.value)}
+                          placeholder={`Article ${index + 1} (Ex: 1 Pull Noir)`} 
+                          required={index === 0}
+                        />
+                        {orderItems.length > 1 && (
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => removeOrderItem(index)}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <X size={18} />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
