@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "vite build && tsc -p tsconfig.server.json",
-    "start": "cross-env NODE_ENV=production node dist/server/index.js",
+    "start": "cross-env NODE_ENV=production node dist/server/server/index.js",
     "preview": "vite preview"
   },
   "dependencies": {
