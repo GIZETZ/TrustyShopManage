@@ -2,12 +2,14 @@
   "name": "CommercantMarchandise",
   "short_name": "Commercant",
   "description": "Application de gestion des commandes et marchandises",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#007AFF",
   "background_color": "#ffffff",
+  "prefer_related_applications": false,
+  "lang": "fr",
   "icons": [
     {
       "src": "/icon-192.png",
