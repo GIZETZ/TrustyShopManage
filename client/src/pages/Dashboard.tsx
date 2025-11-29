@@ -148,9 +148,9 @@ export default function Dashboard() {
         <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-primary/10 p-2 rounded-lg text-primary">
-              <Wallet className="h-6 w-6" />
+              <img src="/icon-50.png" />
             </div>
-            <h1 className="text-xl font-heading font-bold text-foreground">Gestion Commerce</h1>
+            <h1 className="text-xl font-heading font-bold text-foreground">TrustyShop</h1>
           </div>
           <Dialog open={isNewOrderOpen} onOpenChange={setIsNewOrderOpen}>
             <DialogTrigger asChild>

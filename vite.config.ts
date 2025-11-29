@@ -39,6 +39,19 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(import.meta.dirname, "index.html"),
+        sw: path.resolve(import.meta.dirname, "public/service-worker.ts"),
+      },
+      output: {
+        entryFileNames: (chunkInfo) => {
+          return chunkInfo.name === "sw"
+            ? "service-worker.js"
+            : "assets/[name]-[hash].js";
+        },
+      },
+    },
   },
   server: {
     host: "0.0.0.0",
@@ -47,5 +60,6 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    middlewareMode: true,
   },
 });
