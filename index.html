@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Application de gestion des commandes et marchandises" />
     
-    <!-- PWA Manifest -->
+    <!-- PWA Manifest - CRITICAL LINE -->
     <link rel="manifest" href="/manifest.json" />
     
     <!-- Apple Touch Icon -->
@@ -141,30 +141,22 @@
     <script type="module" src="./src/main.tsx"></script>
 
     <script>
-      let deferredPrompt = null;
-      const promptContainer = document.getElementById('pwa-install-prompt');
-      const installBtn = document.getElementById('pwa-install-btn');
-      const dismissBtn = document.getElementById('pwa-dismiss-btn');
-
-      // Service Worker registration FIRST (avant beforeinstallprompt)
+      // Service Worker MUST be registered FIRST
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js', {
-          scope: '/',
-        }).then((registration) => {
-          console.log('✅ Service Worker enregistré:', registration);
-        }).catch((error) => {
-          console.error('❌ Erreur Service Worker:', error);
-        });
+        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+          .then(reg => console.log('✅ SW registered:', reg.scope))
+          .catch(err => console.error('❌ SW failed:', err));
       }
 
-      // Écoute l'événement beforeinstallprompt
-      window.addEventListener('beforeinstallprompt', (event) => {
-        event.preventDefault();
-        deferredPrompt = event;
-        console.log('✅ beforeinstallprompt déclenché - bouton d\'installation visible');
-        promptContainer.style.display = 'block';
+      // THEN listen for beforeinstallprompt
+      let deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        console.log('✅ beforeinstallprompt fired - installation ready');
+        document.getElementById('pwa-install-prompt').style.display = 'block';
       });
-
+      
       // Log si PWA déjà installée
       window.addEventListener('appinstalled', () => {
         console.log('✅ PWA déjà installée');
