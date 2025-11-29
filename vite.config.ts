@@ -4,10 +4,9 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react()],
-  root: "client",
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./client/src"),
+      "@": path.resolve(__dirname, "./src"),
       "@shared": path.resolve(__dirname, "./shared"),
     },
   },
@@ -15,7 +14,7 @@ export default defineConfig({
     middlewareMode: true,
   },
   build: {
-    outDir: "../dist/public",
+    outDir: "dist/public",
     emptyOutDir: true,
     minify: "terser",
   },
