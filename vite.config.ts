@@ -10,6 +10,7 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "./shared"),
     },
   },
+  root: path.resolve(__dirname),
   server: {
     middlewareMode: true,
   },
