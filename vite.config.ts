@@ -14,6 +14,7 @@ export default defineConfig({
     middlewareMode: true,
   },
   build: {
+    root: path.resolve(__dirname, "."),
     outDir: "dist/client",
     emptyOutDir: true,
     minify: "terser",
