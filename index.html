@@ -146,56 +146,63 @@
       const installBtn = document.getElementById('pwa-install-btn');
       const dismissBtn = document.getElementById('pwa-dismiss-btn');
 
+      // Service Worker registration FIRST (avant beforeinstallprompt)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js', {
+          scope: '/',
+        }).then((registration) => {
+          console.log('✅ Service Worker enregistré:', registration);
+        }).catch((error) => {
+          console.error('❌ Erreur Service Worker:', error);
+        });
+      }
+
       // Écoute l'événement beforeinstallprompt
       window.addEventListener('beforeinstallprompt', (event) => {
         event.preventDefault();
         deferredPrompt = event;
-        // Affiche le prompt personnalisé
+        console.log('✅ beforeinstallprompt déclenché - bouton d\'installation visible');
         promptContainer.style.display = 'block';
-        console.log('PWA ready to install');
+      });
+
+      // Log si PWA déjà installée
+      window.addEventListener('appinstalled', () => {
+        console.log('✅ PWA déjà installée');
+        promptContainer.style.display = 'none';
       });
 
       // Bouton d'installation
       installBtn.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
+        if (!deferredPrompt) {
+          console.warn('⚠️ Prompt non disponible');
+          return;
+        }
 
         try {
           deferredPrompt.prompt();
           const { outcome } = await deferredPrompt.userChoice;
-          console.log(`L'utilisateur a choisi: ${outcome}`);
+          console.log(`✅ Utilisateur a choisi: ${outcome}`);
           deferredPrompt = null;
           promptContainer.style.display = 'none';
         } catch (error) {
-          console.error('Installation échouée:', error);
+          console.error('❌ Installation échouée:', error);
         }
       });
 
       // Bouton "Plus tard"
       dismissBtn.addEventListener('click', () => {
+        console.log('Prompt dismissed');
         promptContainer.style.display = 'none';
-        deferredPrompt = null;
       });
 
-      // Masque le prompt si l'app est déjà installée
-      window.addEventListener('appinstalled', () => {
-        console.log('PWA installée avec succès');
-        promptContainer.style.display = 'none';
-        deferredPrompt = null;
+      // Debug: affiche l'état de la PWA
+      window.addEventListener('load', () => {
+        console.log('📱 État PWA:');
+        console.log('  - HTTPS:', window.location.protocol === 'https:');
+        console.log('  - Service Worker support:', 'serviceWorker' in navigator);
+        console.log('  - Manifest:', document.querySelector('link[rel="manifest"]')?.href);
+        console.log('  - beforeinstallprompt état:', deferredPrompt ? '✅ Prêt' : '❌ Non disponible');
       });
-
-      // Service Worker registration
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', async () => {
-          try {
-            const registration = await navigator.serviceWorker.register('/service-worker.js', {
-              scope: '/',
-            });
-            console.log('Service Worker enregistré:', registration);
-          } catch (error) {
-            console.warn('Erreur enregistrement Service Worker:', error);
-          }
-        });
-      }
     </script>
   </body>
 </html>
