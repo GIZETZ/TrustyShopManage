@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Order } from "@/lib/mockData";
+import { Order } from "@/lib/api";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ChevronDown, ChevronUp, ShoppingBag, User, Calendar, AlertCircle, Edit, Trash2, Image as ImageIcon } from "lucide-react";
@@ -73,7 +73,7 @@ export function OrderCard({ order, onUpdate, onDelete }: OrderCardProps) {
               </h3>
               <div className="flex items-center text-xs text-muted-foreground mt-1 gap-2">
                 <Calendar size={12} />
-                {format(new Date(order.date), "d MMMM yyyy", { locale: fr })}
+                {format(new Date(order.createdAt), "d MMMM yyyy", { locale: fr })}
               </div>
             </div>
           </div>

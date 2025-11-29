@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { mockOrders, Order } from "@/lib/mockData";
 import { OrderCard } from "@/components/OrderCard";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchOrders, createOrder, updateOrder, deleteOrder, type Order, type CreateOrderData } from "@/lib/api";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -13,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
@@ -22,9 +24,49 @@ export default function Dashboard() {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [orderItems, setOrderItems] = useState<string[]>([""]);
 
+  // Fetch orders from API
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ['orders'],
+    queryFn: fetchOrders,
+  });
+
+  // Mutations
+  const createOrderMutation = useMutation({
+    mutationFn: createOrder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success("Commande créée avec succès !");
+    },
+    onError: () => {
+      toast.error("Erreur lors de la création de la commande");
+    },
+  });
+
+  const updateOrderMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateOrderData> }) => 
+      updateOrder(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success("Commande modifiée avec succès !");
+    },
+    onError: () => {
+      toast.error("Erreur lors de la modification");
+    },
+  });
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: deleteOrder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success("Commande supprimée");
+    },
+    onError: () => {
+      toast.error("Erreur lors de la suppression");
+    },
+  });
+
   // Summary Statistics
   const totalOrders = orders.length;
-
   const totalRevenue = orders.reduce((acc, order) => acc + order.paidAmount, 0);
   const totalDue = orders.reduce((acc, order) => acc + (order.totalAmount - order.paidAmount), 0);
 
@@ -50,40 +92,34 @@ export default function Dashboard() {
     setSelectedImages(selectedImages.filter((_, i) => i !== index));
   };
 
-  const handleCreateOrder = (e: React.FormEvent) => {
+  const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
     
-    // Use selected customer from combobox if available, otherwise fall back to input (though input is hidden when combobox used)
-    // For this mockup, we'll assume if they typed in the combobox but didn't select, we might need to handle that, 
-    // but let's rely on the fact that we can just use a hidden input or state.
-    // Actually, let's make the combobox allow creating new items conceptually or just use the state.
-    
     const customerName = selectedCustomer || (formData.get("customer_manual") as string);
-
     if (!customerName) return; 
     
     const validItems = orderItems.filter(i => i.trim() !== "");
     if (validItems.length === 0) return;
 
-    const newOrder: Order = {
-      id: `ORD-${Math.floor(Math.random() * 10000)}`,
+    const totalAmount = Number(formData.get("totalAmount"));
+    const paidAmount = Number(formData.get("paidAmount"));
+
+    const orderData: CreateOrderData = {
       customer: customerName,
       items: validItems,
-      totalAmount: Number(formData.get("totalAmount")),
-      paidAmount: Number(formData.get("paidAmount")),
-      date: new Date().toISOString(),
-      status: Number(formData.get("paidAmount")) >= Number(formData.get("totalAmount")) ? 'paid' : 
-              Number(formData.get("paidAmount")) > 0 ? 'partial' : 'pending',
+      totalAmount,
+      paidAmount,
+      status: paidAmount >= totalAmount ? 'paid' : paidAmount > 0 ? 'partial' : 'pending',
       note: formData.get("note") as string || undefined,
       images: selectedImages
     };
 
-    setOrders([newOrder, ...orders]);
+    await createOrderMutation.mutateAsync(orderData);
     setIsNewOrderOpen(false);
-    setSelectedCustomer(""); // Reset
-    setSelectedImages([]); // Reset images
-    setOrderItems([""]); // Reset items
+    setSelectedCustomer("");
+    setSelectedImages([]);
+    setOrderItems([""]);
   };
 
   const addOrderItem = () => {
@@ -370,18 +406,34 @@ export default function Dashboard() {
         </div>
 
         {/* Orders Grid */}
-        {filteredOrders.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-20 text-muted-foreground">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Chargement des commandes...</p>
+          </div>
+        ) : filteredOrders.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredOrders.map((order) => (
               <OrderCard 
                 key={order.id} 
                 order={order} 
                 onUpdate={(updatedOrder) => {
-                  setOrders(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+                  updateOrderMutation.mutate({ 
+                    id: order.id, 
+                    data: {
+                      customer: updatedOrder.customer,
+                      items: updatedOrder.items,
+                      totalAmount: updatedOrder.totalAmount,
+                      paidAmount: updatedOrder.paidAmount,
+                      status: updatedOrder.status,
+                      note: updatedOrder.note,
+                      images: updatedOrder.images
+                    }
+                  });
                 }}
                 onDelete={(orderId) => {
                   if(confirm("Êtes-vous sûr de vouloir supprimer cette commande ?")) {
-                    setOrders(orders.filter(o => o.id !== orderId));
+                    deleteOrderMutation.mutate(orderId);
                   }
                 }}
               />
