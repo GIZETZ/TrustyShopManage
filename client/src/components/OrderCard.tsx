@@ -4,7 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Order } from "@/lib/mockData";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronDown, ChevronUp, ShoppingBag, User, Calendar, AlertCircle, Edit, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ShoppingBag, User, Calendar, AlertCircle, Edit, Trash2, Image as ImageIcon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ interface OrderCardProps {
 export function OrderCard({ order, onUpdate, onDelete }: OrderCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const percentagePaid = (order.paidAmount / order.totalAmount) * 100;
   const remaining = order.totalAmount - order.paidAmount;
 
@@ -107,6 +108,23 @@ export function OrderCard({ order, onUpdate, onDelete }: OrderCardProps) {
             <div className="flex items-start gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-md mt-2">
               <AlertCircle size={14} className="mt-0.5 shrink-0" />
               <span>{order.note}</span>
+            </div>
+          )}
+
+          {order.images && order.images.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-2 mt-1">
+               {order.images.map((img, idx) => (
+                 <Dialog key={idx}>
+                   <DialogTrigger asChild>
+                     <div className="h-12 w-12 rounded-md overflow-hidden border border-border flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
+                       <img src={img} alt="Order attachment" className="h-full w-full object-cover" />
+                     </div>
+                   </DialogTrigger>
+                   <DialogContent className="sm:max-w-md p-0 overflow-hidden border-none bg-transparent shadow-none">
+                     <img src={img} alt="Full size" className="w-full h-auto rounded-lg shadow-2xl" />
+                   </DialogContent>
+                 </Dialog>
+               ))}
             </div>
           )}
         </div>

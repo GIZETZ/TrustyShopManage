@@ -7,6 +7,7 @@ export interface Order {
   date: string;
   status: 'paid' | 'partial' | 'pending';
   note?: string;
+  images?: string[];
 }
 
 export const mockOrders: Order[] = [

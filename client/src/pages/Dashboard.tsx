@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, TrendingUp, Wallet, AlertCircle, Filter, Check } from "lucide-react";
+import { Plus, Search, TrendingUp, Wallet, AlertCircle, Filter, Check, Upload, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [openCombobox, setOpenCombobox] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState("");
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
   // Summary Statistics
   const totalOrders = orders.length;
@@ -35,6 +36,17 @@ export default function Dashboard() {
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newImages = Array.from(e.target.files).map(file => URL.createObjectURL(file));
+      setSelectedImages([...selectedImages, ...newImages]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages(selectedImages.filter((_, i) => i !== index));
+  };
 
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,12 +70,14 @@ export default function Dashboard() {
       date: new Date().toISOString(),
       status: Number(formData.get("paidAmount")) >= Number(formData.get("totalAmount")) ? 'paid' : 
               Number(formData.get("paidAmount")) > 0 ? 'partial' : 'pending',
-      note: formData.get("note") as string || undefined
+      note: formData.get("note") as string || undefined,
+      images: selectedImages
     };
 
     setOrders([newOrder, ...orders]);
     setIsNewOrderOpen(false);
     setSelectedCustomer(""); // Reset
+    setSelectedImages([]); // Reset images
   };
 
   return (
@@ -176,6 +190,36 @@ export default function Dashboard() {
                   <Label htmlFor="note">Note (Optionnel)</Label>
                   <Input id="note" name="note" placeholder="Ex: Reste à payer..." />
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Photos (Optionnel)</Label>
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    {selectedImages.map((img, idx) => (
+                      <div key={idx} className="relative aspect-square bg-muted rounded-md overflow-hidden border border-border">
+                        <img src={img} alt="Preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-destructive transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-md hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer text-muted-foreground hover:text-primary">
+                      <Upload size={20} className="mb-1" />
+                      <span className="text-[10px] font-medium">Ajouter</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        multiple 
+                        className="hidden" 
+                        onChange={handleImageUpload}
+                      />
+                    </label>
+                  </div>
+                </div>
+
                 <DialogFooter className="mt-6">
                   <Button type="submit" className="w-full">Enregistrer</Button>
                 </DialogFooter>
