@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
+import { db } from "./db.js";
 import { insertOrderSchema, updateOrderSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 
