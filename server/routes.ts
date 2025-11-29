@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { db } from "./db.js";
-import { insertOrderSchema, updateOrderSchema } from "@shared/schema";
+import * as schema from "../shared/schema.js";
 import { fromZodError } from "zod-validation-error";
 
 export async function registerRoutes(
@@ -37,7 +37,7 @@ export async function registerRoutes(
   // Create order
   app.post("/api/orders", async (req, res) => {
     try {
-      const validation = insertOrderSchema.safeParse(req.body);
+      const validation = schema.insertOrderSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({ 
           error: fromZodError(validation.error).message 
@@ -55,7 +55,7 @@ export async function registerRoutes(
   // Update order
   app.patch("/api/orders/:id", async (req, res) => {
     try {
-      const validation = updateOrderSchema.safeParse(req.body);
+      const validation = schema.updateOrderSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({ 
           error: fromZodError(validation.error).message 
