@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
+import { useEffect } from "react";
 
 function Router() {
   return (
@@ -17,6 +18,12 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    // Clear all cached data on app start to ensure fresh data
+    queryClient.clear();
+    console.log('🧹 Cache cleared on app start');
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="light">

@@ -42,15 +42,51 @@ export default function Dashboard() {
   ];
 
   // Fetch orders from API
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: orders = [], isLoading, error, refetch } = useQuery({
     queryKey: ['orders'],
     queryFn: fetchOrders,
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache data
+    onError: (error) => {
+      console.error('Error fetching orders:', error);
+      toast.error("Erreur lors du chargement des commandes");
+    },
   });
 
   // Function to refresh data
   const refreshData = () => {
     queryClient.invalidateQueries({ queryKey: ['orders'] });
   };
+
+  // Handle loading and error states
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Chargement des commandes...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-destructive text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold">Erreur de chargement</h2>
+          <p className="text-muted-foreground mb-4">Impossible de charger les commandes</p>
+          <Button onClick={() => refetch()} className="gap-2">
+            <span>🔄</span>
+            Réessayer
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Export functions
   const exportToCSV = (ordersToExport: Order[]) => {
