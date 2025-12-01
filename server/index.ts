@@ -13,9 +13,17 @@ const clients = new Set<WebSocket>();
 
 // Handle WebSocket connections
 httpServer.on('upgrade', (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit('connection', ws, request);
-  });
+  console.log('🔌 WebSocket upgrade request received:', request.url);
+  
+  // Only handle WebSocket connections for /ws path
+  if (request.url === '/ws') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    // Let other upgrade requests fall through
+    socket.destroy();
+  }
 });
 
 wss.on('connection', (ws) => {

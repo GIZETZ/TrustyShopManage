@@ -65,20 +65,27 @@ export async function uploadImages(files: File[]): Promise<string[]> {
   const uploadedUrls: string[] = [];
   
   for (const file of files) {
-    const formData = new FormData();
-    formData.append('image', file);
+    // Convert to data URL and store directly
+    const reader = new FileReader();
     
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData,
+    const dataUrlPromise = new Promise<string>((resolve, reject) => {
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result);
+      };
+      reader.onerror = reject;
     });
     
-    if (!response.ok) {
-      throw new Error(`Failed to upload image: ${file.name}`);
-    }
+    reader.readAsDataURL(file);
     
-    const result = await response.json();
-    uploadedUrls.push(result.url);
+    try {
+      const dataUrl = await dataUrlPromise;
+      uploadedUrls.push(dataUrl);
+      console.log(`✅ Image processed: ${file.name}`);
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
   }
   
   return uploadedUrls;

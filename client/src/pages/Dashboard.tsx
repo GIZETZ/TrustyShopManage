@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { OrderCard } from "@/components/OrderCard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchOrders, createOrder, updateOrder, deleteOrder, uploadImages, type Order, type CreateOrderData } from "@/lib/api";
@@ -8,12 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, TrendingUp, Wallet, AlertCircle, Filter, Check, Upload, X, ArrowUpDown } from "lucide-react";
+import { Plus, Search, TrendingUp, Wallet, AlertCircle, Filter, Check, Upload, X, ArrowUpDown, Download, FileText, Table } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useWebSocket } from "@/hooks/useWebSocket";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -26,6 +25,10 @@ export default function Dashboard() {
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([]);
   const [orderItems, setOrderItems] = useState<string[]>([""]);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportMonth, setExportMonth] = useState<string>("");
+  const [exportYear, setExportYear] = useState<string>(new Date().getFullYear().toString());
+  const [exportFormat, setExportFormat] = useState<string>("csv");
 
   // Sort options
   const sortOptions = [
@@ -44,36 +47,114 @@ export default function Dashboard() {
     queryFn: fetchOrders,
   });
 
-  // WebSocket for real-time updates
-  useWebSocket('/ws', (data) => {
-    switch (data.type) {
-      case 'order_created':
-      case 'order_updated':
-      case 'order_deleted':
-        // Invalidate and refetch orders to get latest data
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
-        
-        // Show notification for user feedback
-        if (data.type === 'order_created') {
-          toast.success("Nouvelle commande ajoutée !");
-        } else if (data.type === 'order_updated') {
-          toast.success("Commande mise à jour !");
-        } else if (data.type === 'order_deleted') {
-          toast.success("Commande supprimée !");
-        }
-        break;
+  // Function to refresh data
+  const refreshData = () => {
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+  };
+
+  // Export functions
+  const exportToCSV = (ordersToExport: Order[]) => {
+    const headers = ['Date', 'Client', 'Articles', 'Montant Total', 'Montant Payé', 'Reste à Payer', 'Statut', 'Note'];
+    
+    // Add BOM for proper UTF-8 encoding in Excel
+    const BOM = '\uFEFF';
+    
+    const csvContent = [
+      headers.join(';'), // Use semicolon as delimiter (Excel standard for French)
+      ...ordersToExport.map(order => [
+        new Date(order.createdAt).toLocaleDateString('fr-FR'),
+        `"${order.customer.replace(/"/g, '""')}"`,
+        `"${order.items.join(' | ').replace(/"/g, '""')}"`, // Use | as separator for items
+        order.totalAmount.toString().replace('.', ','), // Use comma for decimal
+        order.paidAmount.toString().replace('.', ','), // Use comma for decimal
+        (order.totalAmount - order.paidAmount).toString().replace('.', ','), // Use comma for decimal
+        order.status === 'paid' ? 'Payée' : order.status === 'partial' ? 'Partielle' : 'En attente',
+        `"${(order.note || '').replace(/"/g, '""')}"`
+      ].join(';'))
+    ].join('\n');
+
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `commandes_${exportMonth}_${exportYear}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToJSON = (ordersToExport: Order[]) => {
+    const exportData = {
+      periode: `${exportMonth} ${exportYear}`,
+      date_export: new Date().toISOString(),
+      total_commandes: ordersToExport.length,
+      total_revenu: ordersToExport.reduce((sum, order) => sum + order.paidAmount, 0),
+      total_dette: ordersToExport.reduce((sum, order) => sum + (order.totalAmount - order.paidAmount), 0),
+      commandes: ordersToExport.map(order => ({
+        id: order.id,
+        date: order.createdAt,
+        client: order.customer,
+        articles: order.items,
+        montant_total: order.totalAmount,
+        montant_paye: order.paidAmount,
+        reste_a_payer: order.totalAmount - order.paidAmount,
+        statut: order.status,
+        note: order.note,
+        images: order.images
+      }))
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `commandes_${exportMonth}_${exportYear}.json`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExport = () => {
+    if (!exportMonth || !exportYear) {
+      toast.error("Veuillez sélectionner un mois et une année");
+      return;
     }
-  });
+
+    // Filter orders for selected month and year
+    const ordersToExport = orders.filter(order => {
+      const orderDate = new Date(order.createdAt);
+      return orderDate.getMonth() + 1 === parseInt(exportMonth) && 
+             orderDate.getFullYear() === parseInt(exportYear);
+    });
+
+    if (ordersToExport.length === 0) {
+      toast.error("Aucune commande trouvée pour cette période");
+      return;
+    }
+
+    if (exportFormat === 'csv') {
+      exportToCSV(ordersToExport);
+    } else if (exportFormat === 'json') {
+      exportToJSON(ordersToExport);
+    }
+
+    toast.success(`${ordersToExport.length} commandes exportées avec succès !`);
+    setIsExportOpen(false);
+  };
 
   // Mutations
   const createOrderMutation = useMutation({
     mutationFn: createOrder,
     onSuccess: () => {
-      // WebSocket will handle the refresh and notification
+      // Refresh data and show notification
+      refreshData();
       setIsNewOrderOpen(false);
       setSelectedCustomer("");
       setSelectedImageFiles([]);
       setOrderItems([""]);
+      toast.success("Commande créée avec succès !");
     },
     onError: () => {
       toast.error("Erreur lors de la création de la commande");
@@ -83,6 +164,10 @@ export default function Dashboard() {
   const updateOrderMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<CreateOrderData> }) => 
       updateOrder(id, data),
+    onSuccess: () => {
+      refreshData();
+      toast.success("Commande modifiée avec succès !");
+    },
     onError: () => {
       toast.error("Erreur lors de la modification");
     },
@@ -90,6 +175,10 @@ export default function Dashboard() {
 
   const deleteOrderMutation = useMutation({
     mutationFn: deleteOrder,
+    onSuccess: () => {
+      refreshData();
+      toast.success("Commande supprimée");
+    },
     onError: () => {
       toast.error("Erreur lors de la suppression");
     },
@@ -216,15 +305,99 @@ export default function Dashboard() {
             </div>
             <h1 className="text-xl font-heading font-bold text-foreground">TrustyShop</h1>
           </div>
-          <Dialog open={isNewOrderOpen} onOpenChange={setIsNewOrderOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 shadow-lg shadow-primary/20 transition-all hover:shadow-primary/30">
-                <Plus size={18} />
-                <span className="hidden sm:inline">Nouvelle Commande</span>
-                <span className="sm:hidden">Ajouter</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] overflow-visible">
+          <div className="flex gap-2">
+            <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Download size={18} />
+                  <span className="hidden sm:inline">Exporter</span>
+                  <span className="sm:hidden">Export</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[400px]">
+                <DialogHeader>
+                  <DialogTitle>Exporter les commandes</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <Label>Mois</Label>
+                    <Select value={exportMonth} onValueChange={setExportMonth}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner un mois" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Janvier</SelectItem>
+                        <SelectItem value="2">Février</SelectItem>
+                        <SelectItem value="3">Mars</SelectItem>
+                        <SelectItem value="4">Avril</SelectItem>
+                        <SelectItem value="5">Mai</SelectItem>
+                        <SelectItem value="6">Juin</SelectItem>
+                        <SelectItem value="7">Juillet</SelectItem>
+                        <SelectItem value="8">Août</SelectItem>
+                        <SelectItem value="9">Septembre</SelectItem>
+                        <SelectItem value="10">Octobre</SelectItem>
+                        <SelectItem value="11">Novembre</SelectItem>
+                        <SelectItem value="12">Décembre</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Année</Label>
+                    <Select value={exportYear} onValueChange={setExportYear}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner une année" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 5 }, (_, i) => {
+                          const year = new Date().getFullYear() - i;
+                          return <SelectItem key={year} value={year.toString()}>{year}</SelectItem>;
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Format d'export</Label>
+                    <Select value={exportFormat} onValueChange={setExportFormat}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner un format" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="csv">
+                          <div className="flex items-center gap-2">
+                            <Table size={16} />
+                            <span>CSV (Excel)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="json">
+                          <div className="flex items-center gap-2">
+                            <FileText size={16} />
+                            <span>JSON</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsExportOpen(false)}>
+                      Annuler
+                    </Button>
+                    <Button type="button" onClick={handleExport}>
+                      <Download size={16} className="mr-2" />
+                      Exporter
+                    </Button>
+                  </DialogFooter>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={isNewOrderOpen} onOpenChange={setIsNewOrderOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 shadow-lg shadow-primary/20 transition-all hover:shadow-primary/30">
+                  <Plus size={18} />
+                  <span className="hidden sm:inline">Nouvelle Commande</span>
+                  <span className="sm:hidden">Ajouter</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px] overflow-visible">
               <DialogHeader>
                 <DialogTitle>Enregistrer une commande</DialogTitle>
               </DialogHeader>
@@ -378,6 +551,7 @@ export default function Dashboard() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
       </header>
 
