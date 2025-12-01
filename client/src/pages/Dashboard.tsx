@@ -45,15 +45,20 @@ export default function Dashboard() {
   const { data: orders = [], isLoading, error, refetch } = useQuery({
     queryKey: ['orders'],
     queryFn: fetchOrders,
-    retry: 3,
-    retryDelay: 1000,
-    staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache data
-    onError: (error) => {
+    retry: 2,
+    retryDelay: 500,
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
+  });
+
+  // Handle errors separately
+  useEffect(() => {
+    if (error) {
       console.error('Error fetching orders:', error);
       toast.error("Erreur lors du chargement des commandes");
-    },
-  });
+    }
+  }, [error]);
 
   // Function to refresh data
   const refreshData = () => {

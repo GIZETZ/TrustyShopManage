@@ -19,9 +19,21 @@ function Router() {
 
 function App() {
   useEffect(() => {
-    // Clear all cached data on app start to ensure fresh data
-    queryClient.clear();
-    console.log('🧹 Cache cleared on app start');
+    // Only clear very old cached data, not recent data
+    const cache = queryClient.getQueryCache();
+    const queries = cache.getAll();
+    
+    queries.forEach(query => {
+      if (query.state.dataUpdatedAt) {
+        const age = Date.now() - query.state.dataUpdatedAt;
+        // Clear only data older than 30 minutes
+        if (age > 30 * 60 * 1000) {
+          queryClient.removeQueries({ queryKey: query.queryKey });
+        }
+      }
+    });
+    
+    console.log('🧹 Old cache data cleared on app start');
   }, []);
 
   return (
