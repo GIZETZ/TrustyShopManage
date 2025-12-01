@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { OrderCard } from "@/components/OrderCard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchOrders, createOrder, updateOrder, deleteOrder, type Order, type CreateOrderData } from "@/lib/api";
+import { fetchOrders, createOrder, updateOrder, deleteOrder, uploadImages, type Order, type CreateOrderData } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -23,7 +24,7 @@ export default function Dashboard() {
   const [openCombobox, setOpenCombobox] = useState(false);
   const [openSortPopover, setOpenSortPopover] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState("");
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([]);
   const [orderItems, setOrderItems] = useState<string[]>([""]);
 
   // Sort options
@@ -43,12 +44,36 @@ export default function Dashboard() {
     queryFn: fetchOrders,
   });
 
+  // WebSocket for real-time updates
+  useWebSocket('/ws', (data) => {
+    switch (data.type) {
+      case 'order_created':
+      case 'order_updated':
+      case 'order_deleted':
+        // Invalidate and refetch orders to get latest data
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        
+        // Show notification for user feedback
+        if (data.type === 'order_created') {
+          toast.success("Nouvelle commande ajoutée !");
+        } else if (data.type === 'order_updated') {
+          toast.success("Commande mise à jour !");
+        } else if (data.type === 'order_deleted') {
+          toast.success("Commande supprimée !");
+        }
+        break;
+    }
+  });
+
   // Mutations
   const createOrderMutation = useMutation({
     mutationFn: createOrder,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      toast.success("Commande créée avec succès !");
+      // WebSocket will handle the refresh and notification
+      setIsNewOrderOpen(false);
+      setSelectedCustomer("");
+      setSelectedImageFiles([]);
+      setOrderItems([""]);
     },
     onError: () => {
       toast.error("Erreur lors de la création de la commande");
@@ -58,10 +83,6 @@ export default function Dashboard() {
   const updateOrderMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<CreateOrderData> }) => 
       updateOrder(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      toast.success("Commande modifiée avec succès !");
-    },
     onError: () => {
       toast.error("Erreur lors de la modification");
     },
@@ -69,10 +90,6 @@ export default function Dashboard() {
 
   const deleteOrderMutation = useMutation({
     mutationFn: deleteOrder,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      toast.success("Commande supprimée");
-    },
     onError: () => {
       toast.error("Erreur lors de la suppression");
     },
@@ -119,13 +136,13 @@ export default function Dashboard() {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newImages = Array.from(e.target.files).map(file => URL.createObjectURL(file));
-      setSelectedImages([...selectedImages, ...newImages]);
+      const newFiles = Array.from(e.target.files);
+      setSelectedImageFiles([...selectedImageFiles, ...newFiles]);
     }
   };
 
   const removeImage = (index: number) => {
-    setSelectedImages(selectedImages.filter((_, i) => i !== index));
+    setSelectedImageFiles(selectedImageFiles.filter((_, i) => i !== index));
   };
 
   const handleCreateOrder = async (e: React.FormEvent) => {
@@ -141,6 +158,17 @@ export default function Dashboard() {
     const totalAmount = Number(formData.get("totalAmount"));
     const paidAmount = Number(formData.get("paidAmount"));
 
+    // Upload images first if any
+    let uploadedImageUrls: string[] = [];
+    if (selectedImageFiles.length > 0) {
+      try {
+        uploadedImageUrls = await uploadImages(selectedImageFiles);
+      } catch (error) {
+        toast.error("Erreur lors du téléversement des images");
+        return;
+      }
+    }
+
     const orderData: CreateOrderData = {
       customer: customerName,
       items: validItems,
@@ -148,13 +176,13 @@ export default function Dashboard() {
       paidAmount,
       status: paidAmount >= totalAmount ? 'paid' : paidAmount > 0 ? 'partial' : 'pending',
       note: formData.get("note") as string || undefined,
-      images: selectedImages
+      images: uploadedImageUrls
     };
 
     await createOrderMutation.mutateAsync(orderData);
     setIsNewOrderOpen(false);
     setSelectedCustomer("");
-    setSelectedImages([]);
+    setSelectedImageFiles([]);
     setOrderItems([""]);
   };
 
@@ -318,9 +346,9 @@ export default function Dashboard() {
                 <div className="space-y-2">
                   <Label>Photos (Optionnel)</Label>
                   <div className="grid grid-cols-3 gap-2 mb-2">
-                    {selectedImages.map((img, idx) => (
+                    {selectedImageFiles.map((file, idx) => (
                       <div key={idx} className="relative aspect-square bg-muted rounded-md overflow-hidden border border-border">
-                        <img src={img} alt="Preview" className="w-full h-full object-cover" />
+                        <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-cover" />
                         <button
                           type="button"
                           onClick={() => removeImage(idx)}

@@ -1,10 +1,50 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes.js";
+import { registerRoutes, setBroadcastUpdate } from "./routes.js";
 import { serveStatic } from "./static.js";
 import { createServer } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 
 const app = express();
 const httpServer = createServer(app);
+
+// WebSocket server for real-time updates
+const wss = new WebSocketServer({ noServer: true });
+const clients = new Set<WebSocket>();
+
+// Handle WebSocket connections
+httpServer.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit('connection', ws, request);
+  });
+});
+
+wss.on('connection', (ws) => {
+  clients.add(ws);
+  console.log('Client connected to WebSocket');
+  
+  ws.on('close', () => {
+    clients.delete(ws);
+    console.log('Client disconnected from WebSocket');
+  });
+  
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+    clients.delete(ws);
+  });
+});
+
+// Function to broadcast updates to all connected clients
+function broadcastUpdate(type: string, data: any) {
+  const message = JSON.stringify({ type, data });
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+// Set broadcast function for routes
+setBroadcastUpdate(broadcastUpdate);
 
 declare module "http" {
   interface IncomingMessage {

@@ -60,3 +60,26 @@ export async function deleteOrder(id: string): Promise<void> {
     throw new Error('Failed to delete order');
   }
 }
+
+export async function uploadImages(files: File[]): Promise<string[]> {
+  const uploadedUrls: string[] = [];
+  
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to upload image: ${file.name}`);
+    }
+    
+    const result = await response.json();
+    uploadedUrls.push(result.url);
+  }
+  
+  return uploadedUrls;
+}
