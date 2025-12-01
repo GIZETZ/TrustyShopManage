@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, TrendingUp, Wallet, AlertCircle, Filter, Check, Upload, X } from "lucide-react";
+import { Plus, Search, TrendingUp, Wallet, AlertCircle, Filter, Check, Upload, X, ArrowUpDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,11 +18,24 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("date-desc");
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [openCombobox, setOpenCombobox] = useState(false);
+  const [openSortPopover, setOpenSortPopover] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [orderItems, setOrderItems] = useState<string[]>([""]);
+
+  // Sort options
+  const sortOptions = [
+    { value: "date-desc", label: "Date (plus récent)" },
+    { value: "date-asc", label: "Date (plus ancien)" },
+    { value: "customer-asc", label: "Client (A-Z)" },
+    { value: "customer-desc", label: "Client (Z-A)" },
+    { value: "amount-desc", label: "Montant (décroissant)" },
+    { value: "amount-asc", label: "Montant (croissant)" },
+    { value: "status", label: "Statut" }
+  ];
 
   // Fetch orders from API
   const { data: orders = [], isLoading } = useQuery({
@@ -79,6 +92,29 @@ export default function Dashboard() {
                           order.items.some(item => item.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
+  });
+
+  // Sorted Orders
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    switch (sortBy) {
+      case "date-desc":
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      case "date-asc":
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      case "customer-asc":
+        return a.customer.localeCompare(b.customer);
+      case "customer-desc":
+        return b.customer.localeCompare(a.customer);
+      case "amount-desc":
+        return b.totalAmount - a.totalAmount;
+      case "amount-asc":
+        return a.totalAmount - b.totalAmount;
+      case "status":
+        const statusOrder: Record<string, number> = { pending: 0, partial: 1, paid: 2 };
+        return (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
+      default:
+        return 0;
+    }
   });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -370,6 +406,42 @@ export default function Dashboard() {
           </div>
           
           <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">
+            {/* Sort Button */}
+            <Popover open={openSortPopover} onOpenChange={setOpenSortPopover}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 whitespace-nowrap">
+                  <ArrowUpDown size={16} />
+                  Trier
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0" align="end">
+                <Command>
+                  <CommandList>
+                    <CommandGroup>
+                      {sortOptions.map((option) => (
+                        <CommandItem
+                          key={option.value}
+                          value={option.value}
+                          onSelect={(currentValue: string) => {
+                            setSortBy(currentValue === sortBy ? "" : currentValue);
+                            setOpenSortPopover(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              sortBy === option.value ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {option.label}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            
              <Button 
                 variant={statusFilter === 'all' ? 'default' : 'outline'} 
                 onClick={() => setStatusFilter('all')}
@@ -411,9 +483,9 @@ export default function Dashboard() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
             <p>Chargement des commandes...</p>
           </div>
-        ) : filteredOrders.length > 0 ? (
+        ) : sortedOrders.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {filteredOrders.map((order) => (
+            {sortedOrders.map((order) => (
               <OrderCard 
                 key={order.id} 
                 order={order} 
